@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  pod-add-image-pull-secret:
+  - apiVersion: v2
+    appVersion: 0.1.2
+    created: "2021-09-03T20:43:36.385772162Z"
+    description: A Helm chart for Kubernetes
+    digest: f244231af093ae9a51243abcb834e7e65d09256b22f8fbae4278482347655c39
+    name: pod-add-image-pull-secret
+    type: application
+    urls:
+    - https://github.com/xeedio/k8s-webhooks/releases/download/pod-add-image-pull-secret-0.1.0/pod-add-image-pull-secret-0.1.0.tgz
+    version: 0.1.0
+generated: "2021-09-03T20:43:36.171529048Z"
