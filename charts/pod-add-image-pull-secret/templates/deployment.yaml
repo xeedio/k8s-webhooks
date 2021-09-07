@@ -43,6 +43,11 @@ spec:
             - -tls-cert-file=/etc/webhook/certs/tls.crt
             - -tls-key-file=/etc/webhook/certs/tls.key
             - -image-pull-secret-name={{ .Values.image.imagePullSecretName }}
+          env:
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
           volumeMounts:
             - name: webhook-certs
               mountPath: /etc/webhook/certs

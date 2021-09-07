@@ -11,6 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	kwhhttp "github.com/slok/kubewebhook/v2/pkg/http"
+	kwhlog "github.com/slok/kubewebhook/v2/pkg/log"
 	kwhlogrus "github.com/slok/kubewebhook/v2/pkg/log/logrus"
 	kwhprometheus "github.com/slok/kubewebhook/v2/pkg/metrics/prometheus"
 	kwhmodel "github.com/slok/kubewebhook/v2/pkg/model"
@@ -18,6 +19,7 @@ import (
 	kwhmutating "github.com/slok/kubewebhook/v2/pkg/webhook/mutating"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 )
 
 type config struct {
@@ -25,6 +27,9 @@ type config struct {
 	keyFile             string
 	imagePullSecretName string
 }
+
+var operatorNamespace = "k8s-webhooks"
+var logger kwhlog.Logger
 
 func initFlags() *config {
 	cfg := &config{}
@@ -38,15 +43,42 @@ func initFlags() *config {
 	return cfg
 }
 
-func run() error {
-	logrusLogEntry := logrus.NewEntry(logrus.New())
-	logrusLogEntry.Logger.SetLevel(logrus.DebugLevel)
-	logger := kwhlogrus.NewLogrus(logrusLogEntry)
+func initClient() {
+	if kubeClientSet != nil {
+		return
+	}
 
+	kubeConfig := getClusterConfig()
+	var err error
+	kubeClientSet, err = kubernetes.NewForConfig(kubeConfig)
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
+func init() {
+	secretCache = make(map[string]bool)
+	logrusLogEntry := logrus.NewEntry(logrus.New())
+	logrusLogEntry.Logger.SetLevel(logrus.InfoLevel)
+	logger = kwhlogrus.NewLogrus(logrusLogEntry)
+
+	if os.Getenv("POD_NAMESPACE") != "" {
+		operatorNamespace = os.Getenv("POD_NAMESPACE")
+	}
+}
+
+func run() error {
 	cfg := initFlags()
 
+	initClient()
+
+	localSecret, err := getSecret(operatorNamespace, cfg.imagePullSecretName)
+	if err != nil {
+		logger.Errorf("Error getting local secret: %v", err)
+	}
+
 	// Create mutator.
-	mt := kwhmutating.MutatorFunc(func(_ context.Context, _ *kwhmodel.AdmissionReview, obj metav1.Object) (*kwhmutating.MutatorResult, error) {
+	mt := kwhmutating.MutatorFunc(func(_ context.Context, ar *kwhmodel.AdmissionReview, obj metav1.Object) (*kwhmutating.MutatorResult, error) {
 		pod, ok := obj.(*corev1.Pod)
 		if !ok {
 			return &kwhmutating.MutatorResult{}, nil
@@ -58,12 +90,18 @@ func run() error {
 			podName = pod.GetGenerateName()
 		}
 
-		podNamespace := pod.GetNamespace()
-		if podNamespace != "" {
-			podName = fmt.Sprintf("%s/%s", podNamespace, podName)
-		}
+		podNamespace := ar.Namespace
+		podName = fmt.Sprintf("%s/%s", podNamespace, podName)
 
-		logger.Debugf("Received mutation request for pod %s", podName)
+		logger.Infof("Received mutation request for pod %s", podName)
+
+		if podNamespace != "" {
+			if err := saveSecret(podNamespace, localSecret); err != nil {
+				logger.Errorf("Unable to save secret in %s namespace: %v", podNamespace, err)
+			}
+		} else {
+			logger.Warningf("No namespace shown for pod %s", podName)
+		}
 
 		if pod.Spec.ImagePullSecrets == nil {
 			pod.Spec.ImagePullSecrets = make([]corev1.LocalObjectReference, 0)

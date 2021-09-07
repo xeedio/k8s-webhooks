@@ -5,7 +5,7 @@ image:
   repository: xeedio/pod-image-pull-secrets-webhook
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
-  tag: "0.1.2"
+  tag: ""
   imagePullSecretName: cluster-docker-creds
 
 imagePullSecrets: []

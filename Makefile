@@ -1,4 +1,4 @@
-IMAGE_TAG = 0.1.2
+IMAGE_TAG = 0.1.3
 IMAGE = xeedio/pod-image-pull-secrets-webhook:$(IMAGE_TAG)
 BUILD_TARGET = pod-add-image-pull-secret
 
