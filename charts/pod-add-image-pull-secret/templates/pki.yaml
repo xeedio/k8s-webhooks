@@ -5,7 +5,7 @@ metadata:
   name: {{ include "pod-add-image-pull-secret.fullname" . }}-certs
 spec:
   secretName: {{ include "pod-add-image-pull-secret.fullname" . }}-certs
-  duration: 8760h  # 1 year
+  duration: 8760h0m0s # 1 year
   dnsNames:
   - {{ include "pod-add-image-pull-secret.fullname" . }}
   - {{ include "pod-add-image-pull-secret.fullname" . }}.{{ .Release.Namespace }}
